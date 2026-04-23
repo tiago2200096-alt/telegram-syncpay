@@ -1,68 +1,77 @@
 import os
+from io import BytesIO
+import requests
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-from app.syncpay import create_pix_payment
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
+SUPORTE_LINK = "https://t.me/anonimoprimevip"
+
+# ===== SEUS VÍDEOS =====
+MEDIA = {
+    "WELCOME_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
+    "DATA_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453009/https:/res.cloudinary.com/lv_0_20260207052358/video/upload/v123456/video.mp4",
+    "PAYMENT_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4",
+}
+
+# ===== CONTROLE =====
 user_states = {}
 user_data = {}
-order_counter = 1
 
 
 def menu():
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("📅 Plano Mensal", callback_data="mensal"))
     kb.add(InlineKeyboardButton("💎 Plano Vitalício", callback_data="vitalicio"))
-    kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
+    kb.add(InlineKeyboardButton("🆘 Suporte", url=SUPORTE_LINK))
     return kb
 
 
-def payment_actions():
+def support_kb():
     kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("✅ Já paguei", callback_data="ja_paguei"))
-    kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
+    kb.add(InlineKeyboardButton("✅ Já paguei (verificar)", url=SUPORTE_LINK))
+    kb.add(InlineKeyboardButton("🆘 Suporte", url=SUPORTE_LINK))
     return kb
 
 
-def get_plan_amount(plan):
-    if plan == "mensal":
-        return 29.90
-    elif plan == "vitalicio":
-        return 97.00
-    return 0
+def send_video(chat_id, url, caption=None):
+    try:
+        if "COLE_AQUI" in url:
+            return
+
+        r = requests.get(url)
+        video = BytesIO(r.content)
+        video.name = "video.mp4"
+
+        bot.send_video(chat_id, video, caption=caption)
+    except Exception as e:
+        print("Erro vídeo:", e)
 
 
-def get_plan_name(plan):
-    if plan == "mensal":
-        return "Plano Mensal"
-    elif plan == "vitalicio":
-        return "Plano Vitalício"
-    return "Plano"
-
-
+# ===== START =====
 @bot.message_handler(commands=["start"])
 def start(message):
     bot.send_message(
         message.chat.id,
         "🔥 *Bem-vindo ao BrasilPrime VIP* 🔥\n\n"
-        "💎 Aqui você desbloqueia acesso a um ambiente exclusivo 💎\n\n"
-        "*Ao assinar, você recebe:*\n"
-        "✨ Famosas do OnlyFans / Privacy\n"
-        "🔥 Ninfetas +18 🇧🇷\n"
-        "🕶️ Conteúdos ocultos +18\n"
-        "🎥 Vídeos vazados raros\n"
-        "💋 Sexo e conteúdos exclusivos\n\n"
-        "📌 *Escolha abaixo o plano ideal para você:*",
+        "Ambiente exclusivo + conteúdos que você NÃO encontra fácil.\n\n"
+        "⚠️ Vagas limitadas\n\n"
+        "👇 Escolha seu plano:",
         reply_markup=menu()
     )
 
+    send_video(
+        message.chat.id,
+        MEDIA["WELCOME_VIDEO"],
+        "🎥 *Olha o nível do que te espera no VIP...*"
+    )
 
+
+# ===== CALLBACKS =====
 @bot.callback_query_handler(func=lambda call: True)
 def callbacks(call):
-    global order_counter
 
     if call.data == "mensal":
         kb = InlineKeyboardMarkup()
@@ -72,11 +81,8 @@ def callbacks(call):
         bot.send_message(
             call.message.chat.id,
             "📅 *Plano Mensal*\n\n"
-            "Ideal para começar agora com acesso completo.\n\n"
-            "✅ Conteúdos exclusivos\n"
-            "✅ Acesso VIP\n"
-            "✅ Suporte\n\n"
-            "💰 *Hoje por apenas R$ 29,90*",
+            "💰 De R$ 59,90 por apenas *R$ 29,90*\n\n"
+            "⚠️ Promoção hoje",
             reply_markup=kb
         )
 
@@ -88,125 +94,81 @@ def callbacks(call):
         bot.send_message(
             call.message.chat.id,
             "💎 *Plano Vitalício*\n\n"
-            "A melhor escolha para acesso completo sem mensalidade.\n\n"
-            "💎 Conteúdos premium\n"
-            "💎 Acesso permanente\n"
-            "💎 Suporte 24h\n\n"
-            "🔥 *Oferta especial*\n"
-            "De *R$ 197,00* por apenas *R$ 97,00*",
+            "🔥 Melhor escolha\n\n"
+            "De *R$ 197* por apenas *R$ 97*",
             reply_markup=kb
         )
 
     elif call.data == "voltar":
-        bot.send_message(
-            call.message.chat.id,
-            "📌 *Escolha abaixo o plano ideal para você:*",
-            reply_markup=menu()
-        )
+        bot.send_message(call.message.chat.id, "Escolha um plano:", reply_markup=menu())
 
     elif call.data == "pagar_mensal":
         user_states[call.from_user.id] = "cpf"
         user_data[call.from_user.id] = {"plano": "mensal"}
 
-        bot.send_message(
+        bot.send_message(call.message.chat.id, "Digite seu *CPF*:")
+
+        send_video(
             call.message.chat.id,
-            "🔐 *Para continuar, precisamos de alguns dados.*\n\n"
-            "Digite seu *CPF*:"
+            MEDIA["DATA_VIDEO"],
+            "🔐 *Seus dados são protegidos e usados apenas para validação.*"
         )
 
     elif call.data == "pagar_vitalicio":
         user_states[call.from_user.id] = "cpf"
         user_data[call.from_user.id] = {"plano": "vitalicio"}
 
-        bot.send_message(
-            call.message.chat.id,
-            "🔐 *Para continuar, precisamos de alguns dados.*\n\n"
-            "Digite seu *CPF*:"
-        )
+        bot.send_message(call.message.chat.id, "Digite seu *CPF*:")
 
-    elif call.data == "ja_paguei":
-        bot.send_message(
+        send_video(
             call.message.chat.id,
-            "✅ *Pagamento informado.*\n\n"
-            "Se o Pix já foi concluído, clique em *Suporte* e envie seu número de pedido para agilizar a liberação."
+            MEDIA["DATA_VIDEO"],
+            "🔐 *Processo seguro. Pode continuar tranquilo.*"
         )
 
 
+# ===== CAPTURA =====
 @bot.message_handler(func=lambda message: True)
-def handle_messages(message):
-    global order_counter
+def handle(message):
+    uid = message.from_user.id
 
-    user_id = message.from_user.id
-
-    if user_id not in user_states:
+    if uid not in user_states:
         return
 
-    state = user_states[user_id]
+    state = user_states[uid]
 
     if state == "cpf":
-        user_data[user_id]["cpf"] = message.text.strip()
-        user_states[user_id] = "telefone"
-
-        bot.send_message(
-            message.chat.id,
-            "📱 Agora digite seu *telefone com DDD*:"
-        )
+        user_data[uid]["cpf"] = message.text
+        user_states[uid] = "telefone"
+        bot.send_message(message.chat.id, "Digite seu *telefone com DDD*:")
 
     elif state == "telefone":
-        user_data[user_id]["telefone"] = message.text.strip()
-        user_states[user_id] = "email"
+        tel = message.text
+
+        if not tel.startswith("55"):
+            tel = "55" + tel
+
+        user_data[uid]["telefone"] = tel
+        user_states[uid] = "email"
+        bot.send_message(message.chat.id, "Digite seu *email*:")
+
+    elif state == "email":
+        user_data[uid]["email"] = message.text
+        user_states[uid] = "finalizado"
 
         bot.send_message(
             message.chat.id,
-            "📧 Agora digite seu *e-mail*:"
+            "💳 *Pagamento gerado*\n\n"
+            "Finalize para liberar seu acesso.\n\n"
+            "Depois clique abaixo 👇",
+            reply_markup=support_kb()
         )
 
-    elif state == "email":
-        user_data[user_id]["email"] = message.text.strip()
-        user_states[user_id] = "finalizado"
-
-        dados = user_data[user_id]
-        plano = dados["plano"]
-        amount = get_plan_amount(plano)
-        plan_name = get_plan_name(plano)
-
-        try:
-            payment = create_pix_payment(
-                amount=amount,
-                description=plan_name,
-                client_name=message.from_user.first_name or "Cliente",
-                cpf=dados["cpf"],
-                email=dados["email"],
-                phone=dados["telefone"]
-            )
-
-            pix_code = payment.get("pix_code", "")
-            identifier = payment.get("identifier", "")
-
-            dados["order_id"] = order_counter
-            dados["pix_code"] = pix_code
-            dados["identifier"] = identifier
-
-            bot.send_message(
-                message.chat.id,
-                "✅ *Cadastro concluído e pagamento gerado!*\n\n"
-                f"🧾 *Pedido:* #{order_counter}\n"
-                f"📦 *Plano:* {plan_name}\n"
-                f"💰 *Valor:* R$ {amount:.2f}\n\n"
-                f"📌 *Pix Copia e Cola:*\n`{pix_code}`\n\n"
-                "Depois de pagar, clique em *Já paguei* ou fale com o *Suporte*.",
-                reply_markup=payment_actions()
-            )
-
-            order_counter += 1
-
-        except Exception as e:
-            bot.send_message(
-                message.chat.id,
-                "❌ *Não consegui gerar seu pagamento agora.*\n\n"
-                "Fale com o suporte para finalizar manualmente."
-            )
-            print("Erro ao gerar pagamento:", e)
+        send_video(
+            message.chat.id,
+            MEDIA["PAYMENT_VIDEO"],
+            "⚡ *Falta só concluir o pagamento para entrar no VIP.*"
+        )
 
 
 def run_bot():
