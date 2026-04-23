@@ -2,12 +2,14 @@ import os
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+from app.syncpay import create_pix_payment
+
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
-# Controle de fluxo
 user_states = {}
 user_data = {}
+order_counter = 1
 
 
 def menu():
@@ -16,6 +18,29 @@ def menu():
     kb.add(InlineKeyboardButton("💎 Plano Vitalício", callback_data="vitalicio"))
     kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
     return kb
+
+
+def payment_actions():
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("✅ Já paguei", callback_data="ja_paguei"))
+    kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
+    return kb
+
+
+def get_plan_amount(plan):
+    if plan == "mensal":
+        return 29.90
+    elif plan == "vitalicio":
+        return 97.00
+    return 0
+
+
+def get_plan_name(plan):
+    if plan == "mensal":
+        return "Plano Mensal"
+    elif plan == "vitalicio":
+        return "Plano Vitalício"
+    return "Plano"
 
 
 @bot.message_handler(commands=["start"])
@@ -37,6 +62,7 @@ def start(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callbacks(call):
+    global order_counter
 
     if call.data == "mensal":
         kb = InlineKeyboardMarkup()
@@ -98,10 +124,18 @@ def callbacks(call):
             "Digite seu *CPF*:"
         )
 
+    elif call.data == "ja_paguei":
+        bot.send_message(
+            call.message.chat.id,
+            "✅ *Pagamento informado.*\n\n"
+            "Se o Pix já foi concluído, clique em *Suporte* e envie seu número de pedido para agilizar a liberação."
+        )
 
-# 🔥 CAPTURA DE DADOS
+
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
+    global order_counter
+
     user_id = message.from_user.id
 
     if user_id not in user_states:
@@ -109,9 +143,8 @@ def handle_messages(message):
 
     state = user_states[user_id]
 
-    # CPF
     if state == "cpf":
-        user_data[user_id]["cpf"] = message.text
+        user_data[user_id]["cpf"] = message.text.strip()
         user_states[user_id] = "telefone"
 
         bot.send_message(
@@ -119,9 +152,8 @@ def handle_messages(message):
             "📱 Agora digite seu *telefone com DDD*:"
         )
 
-    # TELEFONE
     elif state == "telefone":
-        user_data[user_id]["telefone"] = message.text
+        user_data[user_id]["telefone"] = message.text.strip()
         user_states[user_id] = "email"
 
         bot.send_message(
@@ -129,21 +161,52 @@ def handle_messages(message):
             "📧 Agora digite seu *e-mail*:"
         )
 
-    # EMAIL
     elif state == "email":
-        user_data[user_id]["email"] = message.text
+        user_data[user_id]["email"] = message.text.strip()
         user_states[user_id] = "finalizado"
 
         dados = user_data[user_id]
+        plano = dados["plano"]
+        amount = get_plan_amount(plano)
+        plan_name = get_plan_name(plano)
 
-        bot.send_message(
-            message.chat.id,
-            "✅ *Cadastro concluído!*\n\n"
-            f"📄 CPF: {dados['cpf']}\n"
-            f"📱 Telefone: {dados['telefone']}\n"
-            f"📧 Email: {dados['email']}\n\n"
-            "⚡ Agora vamos gerar seu pagamento..."
-        )
+        try:
+            payment = create_pix_payment(
+                amount=amount,
+                description=plan_name,
+                client_name=message.from_user.first_name or "Cliente",
+                cpf=dados["cpf"],
+                email=dados["email"],
+                phone=dados["telefone"]
+            )
+
+            pix_code = payment.get("pix_code", "")
+            identifier = payment.get("identifier", "")
+
+            dados["order_id"] = order_counter
+            dados["pix_code"] = pix_code
+            dados["identifier"] = identifier
+
+            bot.send_message(
+                message.chat.id,
+                "✅ *Cadastro concluído e pagamento gerado!*\n\n"
+                f"🧾 *Pedido:* #{order_counter}\n"
+                f"📦 *Plano:* {plan_name}\n"
+                f"💰 *Valor:* R$ {amount:.2f}\n\n"
+                f"📌 *Pix Copia e Cola:*\n`{pix_code}`\n\n"
+                "Depois de pagar, clique em *Já paguei* ou fale com o *Suporte*.",
+                reply_markup=payment_actions()
+            )
+
+            order_counter += 1
+
+        except Exception as e:
+            bot.send_message(
+                message.chat.id,
+                "❌ *Não consegui gerar seu pagamento agora.*\n\n"
+                "Fale com o suporte para finalizar manualmente."
+            )
+            print("Erro ao gerar pagamento:", e)
 
 
 def run_bot():
