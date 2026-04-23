@@ -18,7 +18,7 @@ def menu():
 def start(message):
     bot.send_message(
         message.chat.id,
-        "Bem-vindo! Escolha um plano:",
+        "🔥 *Bem-vindo ao BrasilPrime VIP*\n\nEscolha um plano abaixo:",
         reply_markup=menu()
     )
 
@@ -26,9 +26,16 @@ def start(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callbacks(call):
     if call.data == "mensal":
-        bot.send_message(call.message.chat.id, "Você escolheu o *Plano Mensal*.")
+        bot.send_message(
+            call.message.chat.id,
+            "📅 *Plano Mensal*\n\nIdeal para começar agora."
+        )
+
     elif call.data == "anual":
-        bot.send_message(call.message.chat.id, "Você escolheu o *Plano Anual*.")
+        bot.send_message(
+            call.message.chat.id,
+            "🏆 *Plano Anual*\n\nMelhor custo-benefício."
+        )
 
 
 def run_bot():
