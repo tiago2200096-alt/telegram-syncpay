@@ -19,8 +19,8 @@ SYNC_WEBHOOK_URL = os.getenv("SYNC_WEBHOOK_URL", "").strip()
 
 MEDIA = {
     "WELCOME_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
-    "DATA_VIDEO": " https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4"
-    "PAYMENT_VIDEO":" "https://res.cloudinary.com/declnidxc/video/upload/v1770453009/https:/res.cloudinary.com/lv_0_20260207052358/video/upload/v123456/video.mp4",
+    "DATA_VIDEO": " "https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4"
+    "PAYMENT_VIDEO":" "https://res.cloudinary.com/declnidxc/video/lv_0_20260207052358/video.mp4",
     "REMINDER_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1776976877/lv_0_20260423173934_rzcqdg.mp4",
 }
 
