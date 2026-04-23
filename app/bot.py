@@ -17,11 +17,12 @@ SYNC_CLIENT_ID = os.getenv("SYNC_CLIENT_ID", "")
 SYNC_CLIENT_SECRET = os.getenv("SYNC_CLIENT_SECRET", "")
 SYNC_WEBHOOK_URL = os.getenv("SYNC_WEBHOOK_URL", "").strip()
 
-MEDIA = {
+    MEDIA = {
     "WELCOME_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
-    "DATA_VIDEO": " "https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4"
-    "PAYMENT_VIDEO":" "https://res.cloudinary.com/declnidxc/video/lv_0_20260207052358/video.mp4",
-    "REMINDER_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1776976877/lv_0_20260423173934_rzcqdg.mp4",
+    "DATA_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4",
+    "PAYMENT_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4",
+    "REMINDER_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1776976877/lv_0_20260423173934_rzcqdg.mp4"
+}
 }
 
 user_states = {}
