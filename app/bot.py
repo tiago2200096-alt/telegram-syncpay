@@ -10,7 +10,7 @@ def menu():
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("📅 Plano Mensal", callback_data="mensal"))
     kb.add(InlineKeyboardButton("🏆 Plano Anual", callback_data="anual"))
-    kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/@anonimoprimevip"))
+    kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
     return kb
 
 
