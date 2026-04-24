@@ -3,13 +3,9 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import threading
 import time
-import requests
-from io import BytesIO
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
-
-WELCOME_VIDEO = "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4"
 
 # ================== MENU ==================
 def menu():
@@ -34,26 +30,12 @@ def start(message):
         reply_markup=menu()
     )
 
-    @bot.message_handler(content_types=['video'])
+# ================== CAPTURA FILE_ID ==================
+@bot.message_handler(content_types=['video'])
 def pegar_id(message):
-    print("FILE_ID:", message.video.file_id)
-    
-    # ENVIO DO VÍDEO (forma correta)
-    try:
-        response = requests.get(WELCOME_VIDEO, timeout=60)
-        response.raise_for_status()
-
-        video = BytesIO(response.content)
-        video.name = "welcome.mp4"
-
-        bot.send_video(
-            message.chat.id,
-            video,
-            caption="🎥 *Veja o que te espera no VIP.*"
-        )
-
-    except Exception as e:
-        print("Erro ao enviar vídeo:", e)
+    file_id = message.video.file_id
+    bot.send_message(message.chat.id, f"📌 FILE_ID:\n`{file_id}`")
+    print("FILE_ID:", file_id)
 
 # ================== CALLBACKS ==================
 @bot.callback_query_handler(func=lambda call: True)
@@ -114,7 +96,6 @@ def gerar_pagamento(message):
         reply_markup=kb
     )
 
-    # lembrete automático
     threading.Thread(target=lembrete, args=(message.chat.id,), daemon=True).start()
 
 def lembrete(chat_id):
