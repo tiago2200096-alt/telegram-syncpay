@@ -18,15 +18,18 @@ def menu():
 # ================== START ==================
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.send_message(
+    bot.send_video(
         message.chat.id,
-        "🔥 *Bem-vindo ao BrasilPrime VIP* 🔥\n\n"
-        "💎 Conteúdo exclusivo que você não encontra fácil...\n\n"
-        "✨ OnlyFans / Privacy\n"
-        "🔥 Conteúdos +18 BR\n"
-        "🎥 Vídeos raros\n"
-        "💋 Muito mais...\n\n"
-        "👇 Escolha seu plano:",
+        "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
+        caption=(
+            "🔥 *Bem-vindo ao BrasilPrime VIP* 🔥\n\n"
+            "💎 Conteúdo exclusivo que você não encontra fácil...\n\n"
+            "✨ OnlyFans / Privacy\n"
+            "🔥 Conteúdos +18 BR\n"
+            "🎥 Vídeos raros\n"
+            "💋 Muito mais...\n\n"
+            "👇 Escolha seu plano:"
+        ),
         reply_markup=menu()
     )
 
