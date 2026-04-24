@@ -31,11 +31,19 @@ def start(message):
     )
 
 # ================== CAPTURA FILE_ID ==================
-@bot.message_handler(content_types=['video'])
+@bot.message_handler(content_types=['video', 'document'])
 def pegar_id(message):
-    file_id = message.video.file_id
-    bot.send_message(message.chat.id, f"📌 FILE_ID:\n`{file_id}`")
-    print("FILE_ID:", file_id)
+    if message.video:
+        file_id = message.video.file_id
+        tipo = "VIDEO"
+    elif message.document:
+        file_id = message.document.file_id
+        tipo = "DOCUMENTO"
+    else:
+        return
+
+    bot.send_message(message.chat.id, f"📌 FILE_ID {tipo}:\n`{file_id}`")
+    print(f"FILE_ID {tipo}:", file_id)
 
 # ================== CALLBACKS ==================
 @bot.callback_query_handler(func=lambda call: True)
