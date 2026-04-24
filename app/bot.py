@@ -34,6 +34,10 @@ def start(message):
         reply_markup=menu()
     )
 
+    @bot.message_handler(content_types=['video'])
+def pegar_id(message):
+    print("FILE_ID:", message.video.file_id)
+    
     # ENVIO DO VÍDEO (forma correta)
     try:
         response = requests.get(WELCOME_VIDEO, timeout=60)
