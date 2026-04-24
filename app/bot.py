@@ -15,18 +15,21 @@ def menu():
     kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
     return kb
 
-# ================== START ==================
+# ================== START (COM VÍDEO) ==================
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.send_message(
+    bot.send_video(
         message.chat.id,
-        "🔥 *Bem-vindo ao BrasilPrime VIP* 🔥\n\n"
-        "💎 Conteúdo exclusivo que você não encontra fácil...\n\n"
-        "✨ OnlyFans / Privacy\n"
-        "🔥 Conteúdos +18 BR\n"
-        "🎥 Vídeos raros\n"
-        "💋 Muito mais...\n\n"
-        "👇 Escolha seu plano:",
+        "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
+        caption=(
+            "🔥 *Bem-vindo ao BrasilPrime VIP* 🔥\n\n"
+            "💎 Conteúdo exclusivo que você não encontra fácil...\n\n"
+            "✨ OnlyFans / Privacy\n"
+            "🔥 Conteúdos +18 BR\n"
+            "🎥 Vídeos raros\n"
+            "💋 Muito mais...\n\n"
+            "👇 Escolha seu plano:"
+        ),
         reply_markup=menu()
     )
 
@@ -89,7 +92,7 @@ def gerar_pagamento(message):
         reply_markup=kb
     )
 
-    # Mensagem automática depois de 2 minutos
+    # lembrete automático depois de 2 minutos
     threading.Thread(target=lembrete, args=(message.chat.id,)).start()
 
 def lembrete(chat_id):
