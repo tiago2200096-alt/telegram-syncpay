@@ -9,13 +9,13 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
 # ================== MEDIA ==================
 MEDIA = {
-    "WELCOME_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
+    "WELCOME_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
 
-    "DATA_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
+    "DATA_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453009/lv_0_20260207052358.mp4",
 
-    "PAYMENT_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4",
+    "PAYMENT_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4",
 
-    "DELAY_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1776976877/lv_0_20260423173934_rzcqdg.mp4"
+    "DELAY_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1776976877/lv_0_20260423173934_rzcqdg.mp4"
 }
 
 # ================== MENU ==================
@@ -50,7 +50,7 @@ def callbacks(call):
 
     if call.data == "mensal":
         kb = InlineKeyboardMarkup()
-        kb.add(InlineKeyboardButton("💳 Assinar Mensal", callback_data="pagar_mensal"))
+        kb.add(InlineKeyboardButton("💳 Assinar Mensal", callback_data="pagar"))
         kb.add(InlineKeyboardButton("⬅️ Voltar", callback_data="voltar"))
 
         bot.send_message(
@@ -61,7 +61,7 @@ def callbacks(call):
 
     elif call.data == "vitalicio":
         kb = InlineKeyboardMarkup()
-        kb.add(InlineKeyboardButton("💎 Assinar Vitalício", callback_data="pagar_vitalicio"))
+        kb.add(InlineKeyboardButton("💎 Assinar Vitalício", callback_data="pagar"))
         kb.add(InlineKeyboardButton("⬅️ Voltar", callback_data="voltar"))
 
         bot.send_message(
@@ -73,7 +73,7 @@ def callbacks(call):
     elif call.data == "voltar":
         bot.send_message(call.message.chat.id, "Escolha um plano:", reply_markup=menu())
 
-    elif call.data in ["pagar_mensal", "pagar_vitalicio"]:
+    elif call.data == "pagar":
         iniciar_fluxo(call.message)
 
 # ================== FLUXO ==================
@@ -111,12 +111,12 @@ def gerar_pagamento(message):
         reply_markup=kb
     )
 
-    # DISPARO AUTOMÁTICO (delay)
+    # vídeo automático depois de 2 minutos
     threading.Thread(target=delay_video, args=(message.chat.id,)).start()
 
 
 def delay_video(chat_id):
-    time.sleep(120)  # 2 minutos
+    time.sleep(120)
     bot.send_video(
         chat_id,
         MEDIA["DELAY_VIDEO"],
@@ -127,3 +127,7 @@ def delay_video(chat_id):
 def run_bot():
     bot.remove_webhook()
     bot.infinity_polling(skip_pending=True)
+
+
+if __name__ == "__main__":
+    run_bot()
