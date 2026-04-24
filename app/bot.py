@@ -3,13 +3,15 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import threading
 import time
+import requests
+from io import BytesIO
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
 WELCOME_VIDEO = "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4"
 
-
+# ================== MENU ==================
 def menu():
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("📅 Plano Mensal", callback_data="mensal"))
@@ -17,7 +19,7 @@ def menu():
     kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
     return kb
 
-
+# ================== START ==================
 @bot.message_handler(commands=["start"])
 def start(message):
     bot.send_message(
@@ -32,26 +34,24 @@ def start(message):
         reply_markup=menu()
     )
 
+    # ENVIO DO VÍDEO (forma correta)
     try:
-    import requests
-    from io import BytesIO
+        response = requests.get(WELCOME_VIDEO, timeout=60)
+        response.raise_for_status()
 
-    response = requests.get(WELCOME_VIDEO, timeout=60)
-    response.raise_for_status()
+        video = BytesIO(response.content)
+        video.name = "welcome.mp4"
 
-    video_file = BytesIO(response.content)
-    video_file.name = "welcome.mp4"
+        bot.send_video(
+            message.chat.id,
+            video,
+            caption="🎥 *Veja o que te espera no VIP.*"
+        )
 
-    bot.send_video(
-        message.chat.id,
-        video_file,
-        caption="🎥 *Veja o que te espera no VIP.*"
-    )
+    except Exception as e:
+        print("Erro ao enviar vídeo:", e)
 
-except Exception as e:
-    print("Erro ao enviar vídeo de start:", e)
-
-
+# ================== CALLBACKS ==================
 @bot.callback_query_handler(func=lambda call: True)
 def callbacks(call):
 
@@ -83,23 +83,21 @@ def callbacks(call):
     elif call.data == "pagar":
         iniciar_fluxo(call.message)
 
-
+# ================== FLUXO ==================
 def iniciar_fluxo(message):
     bot.send_message(message.chat.id, "🔐 Digite seu CPF:")
     bot.register_next_step_handler(message, pegar_cpf)
-
 
 def pegar_cpf(message):
     bot.send_message(message.chat.id, "📱 Agora seu telefone com DDD:")
     bot.register_next_step_handler(message, pegar_telefone)
 
-
 def pegar_telefone(message):
     bot.send_message(message.chat.id, "📧 Agora seu email:")
     bot.register_next_step_handler(message, gerar_pagamento)
 
-
 def gerar_pagamento(message):
+
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("✅ Já paguei (verificar)", callback_data="verificar"))
     kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
@@ -112,8 +110,8 @@ def gerar_pagamento(message):
         reply_markup=kb
     )
 
+    # lembrete automático
     threading.Thread(target=lembrete, args=(message.chat.id,), daemon=True).start()
-
 
 def lembrete(chat_id):
     time.sleep(120)
@@ -122,11 +120,10 @@ def lembrete(chat_id):
         "⚡ Falta pouco... finalize o pagamento para entrar no VIP!"
     )
 
-
+# ================== RUN ==================
 def run_bot():
     bot.remove_webhook()
     bot.infinity_polling(skip_pending=True)
-
 
 if __name__ == "__main__":
     run_bot()
