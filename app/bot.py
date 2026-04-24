@@ -7,20 +7,16 @@ import time
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
-# ================== MÍDIAS ==================
+# ================== MEDIA ==================
 MEDIA = {
     "WELCOME_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
 
-    "DATA_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453000/lv_0_20260128120445_ltxyrw.mp4",
+    "DATA_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770453009/lv_0_20260207052358.mp4",
 
     "PAYMENT_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1770454441/lv_0_20260207055140_obfflt.mp4",
 
     "DELAY_VIDEO": "https://res.cloudinary.com/declnidxc/video/upload/v1776976877/lv_0_20260423173934_rzcqdg.mp4"
 }
-}
-
-# ================== MEMÓRIA SIMPLES ==================
-user_data = {}
 
 # ================== MENU ==================
 def menu():
@@ -38,14 +34,12 @@ def start(message):
         MEDIA["WELCOME_VIDEO"],
         caption=(
             "🔥 *Bem-vindo ao BrasilPrime VIP* 🔥\n\n"
-            "💎 Conteúdos exclusivos que você NÃO encontra fácil...\n\n"
-            "*Você vai ter acesso a:*\n"
+            "💎 Conteúdo exclusivo que você não encontra fácil...\n\n"
             "✨ OnlyFans / Privacy\n"
-            "🔥 Ninfetas +18\n"
-            "🕶️ Conteúdos ocultos\n"
+            "🔥 Conteúdos +18 BR\n"
             "🎥 Vídeos raros\n"
             "💋 Muito mais...\n\n"
-            "👇 *Escolha seu plano abaixo:*"
+            "👇 Escolha seu plano:"
         ),
         reply_markup=menu()
     )
@@ -61,9 +55,7 @@ def callbacks(call):
 
         bot.send_message(
             call.message.chat.id,
-            "📅 *Plano Mensal*\n\n"
-            "Acesso completo ao VIP.\n\n"
-            "💰 *Apenas R$ 29,90*",
+            "📅 *Plano Mensal*\n\n💰 Apenas *R$ 29,90*",
             reply_markup=kb
         )
 
@@ -74,10 +66,7 @@ def callbacks(call):
 
         bot.send_message(
             call.message.chat.id,
-            "💎 *Plano Vitalício*\n\n"
-            "🔥 Oferta única\n\n"
-            "De ~R$197~ por *R$97*\n\n"
-            "Acesso pra sempre.",
+            "💎 *Plano Vitalício*\n\n🔥 De *R$197* por *R$97*",
             reply_markup=kb
         )
 
@@ -85,75 +74,56 @@ def callbacks(call):
         bot.send_message(call.message.chat.id, "Escolha um plano:", reply_markup=menu())
 
     elif call.data in ["pagar_mensal", "pagar_vitalicio"]:
-        user_data[call.message.chat.id] = {"step": "cpf", "plano": call.data}
+        iniciar_fluxo(call.message)
 
-        bot.send_video(
-            call.message.chat.id,
-            MEDIA["DATA_VIDEO"],
-            caption="🔐 Digite seu CPF para continuar:"
-        )
+# ================== FLUXO ==================
+def iniciar_fluxo(message):
 
-    elif call.data == "verificar":
-        bot.send_message(
-            call.message.chat.id,
-            "⏳ Estamos verificando seu pagamento...\n\nSe já pagou, aguarde ou fale com suporte."
-        )
+    bot.send_video(
+        message.chat.id,
+        MEDIA["DATA_VIDEO"],
+        caption="🔐 Digite seu CPF:"
+    )
 
-# ================== FLUXO DE DADOS ==================
-@bot.message_handler(func=lambda message: True)
-def receber_dados(message):
-    user = user_data.get(message.chat.id)
+    bot.register_next_step_handler(message, pegar_cpf)
 
-    if not user:
-        return
 
-    if user["step"] == "cpf":
-        user["cpf"] = message.text
-        user["step"] = "telefone"
-        bot.send_message(message.chat.id, "📱 Digite seu telefone com DDD:")
+def pegar_cpf(message):
+    bot.send_message(message.chat.id, "📱 Agora seu telefone com DDD:")
+    bot.register_next_step_handler(message, pegar_telefone)
 
-    elif user["step"] == "telefone":
-        user["telefone"] = message.text
-        user["step"] = "email"
-        bot.send_message(message.chat.id, "📧 Digite seu e-mail:")
 
-    elif user["step"] == "email":
-        user["email"] = message.text
-        user["step"] = "done"
+def pegar_telefone(message):
+    bot.send_message(message.chat.id, "📧 Agora seu email:")
+    bot.register_next_step_handler(message, gerar_pagamento)
 
-        gerar_pagamento(message.chat.id)
 
-# ================== PAGAMENTO ==================
-def gerar_pagamento(chat_id):
+def gerar_pagamento(message):
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("✅ Já paguei (verificar)", callback_data="verificar"))
     kb.add(InlineKeyboardButton("🆘 Suporte", url="https://t.me/anonimoprimevip"))
 
     bot.send_video(
-        chat_id,
+        message.chat.id,
         MEDIA["PAYMENT_VIDEO"],
-        caption=(
-            "💳 *Pagamento gerado!*\n\n"
-            "Finalize para liberar seu acesso.\n\n"
-            "👇 Depois clique abaixo"
-        ),
+        caption="💰 Finalize o pagamento via Pix 👇",
         reply_markup=kb
     )
 
-    # 🔥 Lembrete automático após 2 minutos
-    def lembrete():
-        time.sleep(120)
+    # DISPARO AUTOMÁTICO (delay)
+    threading.Thread(target=delay_video, args=(message.chat.id,)).start()
 
-        bot.send_video(
-            chat_id,
-            MEDIA["REMINDER_VIDEO"],
-            caption="⚡ Falta só concluir o pagamento pra liberar seu acesso."
-        )
 
-    threading.Thread(target=lembrete).start()
+def delay_video(chat_id):
+    time.sleep(120)  # 2 minutos
+    bot.send_video(
+        chat_id,
+        MEDIA["DELAY_VIDEO"],
+        caption="⚡ Falta pouco... finalize o pagamento para liberar o acesso!"
+    )
 
 # ================== RUN ==================
 def run_bot():
     bot.remove_webhook()
-    bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=20)
+    bot.infinity_polling(skip_pending=True)
