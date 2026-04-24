@@ -33,13 +33,23 @@ def start(message):
     )
 
     try:
-        bot.send_video(
-            message.chat.id,
-            WELCOME_VIDEO,
-            caption="🎥 *Veja o que te espera no VIP.*"
-        )
-    except Exception as e:
-        print("Erro ao enviar vídeo de start:", e)
+    import requests
+    from io import BytesIO
+
+    response = requests.get(WELCOME_VIDEO, timeout=60)
+    response.raise_for_status()
+
+    video_file = BytesIO(response.content)
+    video_file.name = "welcome.mp4"
+
+    bot.send_video(
+        message.chat.id,
+        video_file,
+        caption="🎥 *Veja o que te espera no VIP.*"
+    )
+
+except Exception as e:
+    print("Erro ao enviar vídeo de start:", e)
 
 
 @bot.callback_query_handler(func=lambda call: True)
