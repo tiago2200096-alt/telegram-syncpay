@@ -15,7 +15,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 START_VIDEO = "BAACAgEAAxkBAANYaevr3T0Iu0WHTcsjBZ1Jo6F4liUAAjEKAAKEtmFHYy-juZDqFfc7BA"
 PAGAMENTO_VIDEO = "BAACAgEAAxkBAANuaev6AAFn46WIeaF5ZnI9bAtmV8PNAAI3CgAChLZhR-BxvRomfgSuOwQ"
 PIX_VIDEO = "BAACAgEAAxkBAANyaev7PxnIlAdjn4RqriaUhyrQRsgAAjkKAAKEtmFHKaMw9RQPQFk7BA"
-LEMBRETE_VIDEO = "BAACAgEAAxkBAAN0aev7X6Sfrq3QaJ6qpaZWjHP5y44AAjoKAAKEtmFHeTo0KucnbJg7BA"
+LEMBRETE_VIDEO = "BAACAgEAAxkBAAN0aev7X6Sfrq3QaJ6qpaZWjHP5y44AAjoKucnbJg7BA"
 
 SUPORTE = "https://t.me/anonimoprimevip"
 
@@ -41,8 +41,6 @@ def plano_info(plano):
 def criar_pix_mp(plano, cpf, email, nome):
     nome_plano, valor = plano_info(plano)
 
-    url = "https://api.mercadopago.com/v1/payments"
-
     headers = {
         "Authorization": f"Bearer {MP_ACCESS_TOKEN}",
         "Content-Type": "application/json",
@@ -63,18 +61,24 @@ def criar_pix_mp(plano, cpf, email, nome):
         }
     }
 
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
+    r = requests.post(
+        "https://api.mercadopago.com/v1/payments",
+        json=payload,
+        headers=headers,
+        timeout=30
+    )
     r.raise_for_status()
     return r.json()
 
 
 def consultar_pagamento(payment_id):
-    url = f"https://api.mercadopago.com/v1/payments/{payment_id}"
-    headers = {
-        "Authorization": f"Bearer {MP_ACCESS_TOKEN}"
-    }
+    headers = {"Authorization": f"Bearer {MP_ACCESS_TOKEN}"}
 
-    r = requests.get(url, headers=headers, timeout=30)
+    r = requests.get(
+        f"https://api.mercadopago.com/v1/payments/{payment_id}",
+        headers=headers,
+        timeout=30
+    )
     r.raise_for_status()
     return r.json()
 
@@ -86,7 +90,7 @@ def start(message):
         START_VIDEO,
         caption=(
             "🔥 *Bem-vindo ao BrasilPrime VIP* 🔥\n\n"
-            "💎 Conteúdo adulto +18 exclusivo e difícil de encontrar.\n\n"
+            "💎 Conteúdo exclusivo que você não encontra fácil...\n\n"
             "✨ Conteúdos premium\n"
             "🔥 Atualizações frequentes\n"
             "🎥 Vídeos raros\n"
@@ -99,6 +103,7 @@ def start(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callbacks(call):
+
     if call.data == "mensal":
         kb = InlineKeyboardMarkup()
         kb.add(InlineKeyboardButton("💳 Assinar Mensal", callback_data="pagar_mensal"))
@@ -130,7 +135,11 @@ def callbacks(call):
         )
 
     elif call.data == "voltar":
-        bot.send_message(call.message.chat.id, "📌 Escolha seu plano:", reply_markup=menu())
+        bot.send_message(
+            call.message.chat.id,
+            "📌 Escolha seu plano:",
+            reply_markup=menu()
+        )
 
     elif call.data == "pagar_mensal":
         iniciar_fluxo(call.message, "mensal")
@@ -153,7 +162,7 @@ def iniciar_fluxo(message, plano):
         PAGAMENTO_VIDEO,
         caption=(
             "🔐 *Etapa de segurança*\n\n"
-            "Seus dados são usados somente para gerar o Pix com segurança.\n\n"
+            "Seus dados são usados somente para gerar seu Pix com segurança.\n\n"
             "Digite seu *CPF* para continuar:"
         )
     )
@@ -169,7 +178,8 @@ def handle_text(message):
     estado = user_states[user_id]
 
     if estado == "cpf":
-        user_data[user_id]["cpf"] = "".join(filter(str.isdigit, message.text))
+        cpf = "".join(filter(str.isdigit, message.text))
+        user_data[user_id]["cpf"] = cpf
         user_states[user_id] = "telefone"
 
         bot.send_message(message.chat.id, "📱 Agora envie seu *telefone com DDD*:")
@@ -193,6 +203,10 @@ def gerar_pagamento(message):
 
     plano = dados["plano"]
     nome_plano, valor = plano_info(plano)
+
+    if not MP_ACCESS_TOKEN:
+        bot.send_message(message.chat.id, "❌ Token do Mercado Pago não configurado.")
+        return
 
     try:
         pagamento = criar_pix_mp(
@@ -237,7 +251,11 @@ def gerar_pagamento(message):
         )
 
         if ticket_url:
-            bot.send_message(message.chat.id, f"🔗 Link de pagamento:\n{ticket_url}", parse_mode=None)
+            bot.send_message(
+                message.chat.id,
+                f"🔗 Link de pagamento:\n{ticket_url}",
+                parse_mode=None
+            )
 
         threading.Thread(target=lembrete, args=(message.chat.id, payment_id), daemon=True).start()
 
@@ -252,11 +270,20 @@ def gerar_pagamento(message):
 
 def verificar_pagamento(message, payment_id):
     try:
-        pagamento = consultar_pagamento(payment_id)
-        status = pagamento.get("status")
+        status_final = None
 
-        if status == "approved":
-            payments[payment_id]["status"] = "approved"
+        for _ in range(3):
+            pagamento = consultar_pagamento(payment_id)
+            status_final = pagamento.get("status")
+
+            if status_final in ["approved", "authorized"]:
+                break
+
+            time.sleep(5)
+
+        if status_final in ["approved", "authorized"]:
+            if payment_id in payments:
+                payments[payment_id]["status"] = "approved"
 
             bot.send_message(
                 message.chat.id,
@@ -266,17 +293,17 @@ def verificar_pagamento(message, payment_id):
 
             bot.send_message(message.chat.id, VIP_INVITE_LINK, parse_mode=None)
 
-        elif status == "pending":
+        elif status_final == "pending":
             bot.send_message(
                 message.chat.id,
-                "⏳ *Pagamento ainda pendente.*\n\n"
-                "Se você acabou de pagar, aguarde alguns instantes e clique em verificar novamente."
+                "⏳ *Pagamento ainda não confirmado.*\n\n"
+                "Após pagar, aguarde até 1 minuto e clique em verificar novamente."
             )
 
         else:
             bot.send_message(
                 message.chat.id,
-                f"⚠️ Status do pagamento: `{status}`\n\n"
+                f"⚠️ Status do pagamento: {status_final}\n\n"
                 "Se precisar, fale com o suporte."
             )
 
