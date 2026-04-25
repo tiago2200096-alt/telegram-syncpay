@@ -15,13 +15,12 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 START_VIDEO = "BAACAgEAAxkBAANYaevr3T0Iu0WHTcsjBZ1Jo6F4liUAAjEKAAKEtmFHYy-juZDqFfc7BA"
 PAGAMENTO_VIDEO = "BAACAgEAAxkBAANuaev6AAFn46WIeaF5ZnI9bAtmV8PNAAI3CgAChLZhR-BxvRomfgSuOwQ"
 PIX_VIDEO = "BAACAgEAAxkBAANyaev7PxnIlAdjn4RqriaUhyrQRsgAAjkKAAKEtmFHKaMw9RQPQFk7BA"
-LEMBRETE_VIDEO = "BAACAgEAAxkBAAN0aev7X6Sfrq3QaJ6qpaZWjHP5y44AAjoKAAKEtmFHeTo0KucnbJg7BA"
+LEMBRETE_VIDEO = "BAACAgEAAxkBAAN0aev7X6Sfrq3QaJ6qpaZWjHP5y44AAjoKAAKEtmFHKaMw9QKucnbJg7BA"
 
 SUPORTE = "https://t.me/anonimoprimevip"
 
 user_states = {}
 user_data = {}
-payments = {}
 
 
 def menu():
@@ -32,11 +31,10 @@ def menu():
     return kb
 
 
-# 💰 VALORES DE TESTE
 def plano_info(plano):
     if plano == "mensal":
-        return "Plano Mensal", 0.50
-    return "Plano Vitalício", 0.80
+        return "Plano Mensal", 19.90
+    return "Plano Vitalício", 49.90
 
 
 def criar_pix_mp(plano, cpf, email, nome):
@@ -112,7 +110,11 @@ def callbacks(call):
 
         bot.send_message(
             call.message.chat.id,
-            "📅 *Plano Mensal*\n\n💰 Apenas *R$ 0,50*",
+            "📅 *Plano Mensal*\n\n"
+            "✅ Acesso ao grupo VIP\n"
+            "✅ Conteúdos exclusivos\n"
+            "✅ Suporte direto\n\n"
+            "💰 Apenas *R$ 19,90*",
             reply_markup=kb
         )
 
@@ -123,7 +125,11 @@ def callbacks(call):
 
         bot.send_message(
             call.message.chat.id,
-            "💎 *Plano Vitalício*\n\n💰 Apenas *R$ 0,80*",
+            "💎 *Plano Vitalício*\n\n"
+            "✅ Acesso permanente\n"
+            "✅ Conteúdo premium liberado\n"
+            "✅ Sem mensalidade\n\n"
+            "🔥 Apenas *R$ 49,90*",
             reply_markup=kb
         )
 
@@ -149,7 +155,11 @@ def iniciar_fluxo(message, plano):
     bot.send_video(
         message.chat.id,
         PAGAMENTO_VIDEO,
-        caption="Digite seu *CPF* para gerar o Pix:"
+        caption=(
+            "🔐 *Etapa de segurança*\n\n"
+            "Seus dados são usados somente para gerar seu Pix com segurança.\n\n"
+            "Digite seu *CPF* para continuar:"
+        )
     )
 
 
@@ -164,17 +174,14 @@ def handle_text(message):
 
     if estado == "cpf":
         user_data[user_id]["cpf"] = "".join(filter(str.isdigit, message.text))
-        user_states[user_id] = "telefone"
-        bot.send_message(message.chat.id, "📱 Envie seu telefone:")
-
-    elif estado == "telefone":
-        user_data[user_id]["telefone"] = message.text
         user_states[user_id] = "email"
-        bot.send_message(message.chat.id, "📧 Envie seu e-mail:")
+
+        bot.send_message(message.chat.id, "📧 Agora envie seu *e-mail*:")
 
     elif estado == "email":
-        user_data[user_id]["email"] = message.text
+        user_data[user_id]["email"] = message.text.strip()
         user_states[user_id] = "finalizado"
+
         gerar_pagamento(message)
 
 
@@ -190,47 +197,77 @@ def gerar_pagamento(message):
             nome=message.from_user.first_name
         )
     except Exception as e:
-        print(e)
-        bot.send_message(message.chat.id, "❌ Erro ao gerar Pix")
+        print("ERRO AO GERAR PIX:", e)
+        bot.send_message(message.chat.id, "❌ Erro ao gerar Pix. Fale com o suporte.")
         return
 
     payment_id = str(pagamento["id"])
     transaction_data = pagamento["point_of_interaction"]["transaction_data"]
+    pix_code = transaction_data.get("qr_code", "")
+    ticket_url = transaction_data.get("ticket_url", "")
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("✅ Já paguei / verificar", callback_data=f"verificar_{payment_id}"))
+    kb.add(InlineKeyboardButton("🆘 Suporte", url=SUPORTE))
 
     bot.send_video(
         message.chat.id,
         PIX_VIDEO,
-        caption="💰 Pix gerado! Pague e clique abaixo 👇",
+        caption=(
+            "💰 *Pix gerado com sucesso!*\n\n"
+            "Copie o código Pix abaixo e pague no seu banco.\n\n"
+            "Depois clique em *Já paguei / verificar* 👇"
+        ),
         reply_markup=kb
     )
 
     bot.send_message(
         message.chat.id,
-        f"📌 PIX:\n\n{transaction_data['qr_code']}",
+        f"📌 PIX COPIA E COLA:\n\n{pix_code}",
         parse_mode=None
     )
 
-    threading.Thread(target=lembrete, args=(message.chat.id, payment_id), daemon=True).start()
+    if ticket_url:
+        bot.send_message(
+            message.chat.id,
+            f"🔗 Link de pagamento:\n{ticket_url}",
+            parse_mode=None
+        )
+
+    threading.Thread(target=lembrete, args=(message.chat.id,), daemon=True).start()
 
 
 def verificar_pagamento(message, payment_id):
-    pagamento = consultar_pagamento(payment_id)
-    status = pagamento.get("status")
+    try:
+        pagamento = consultar_pagamento(payment_id)
+        status = pagamento.get("status")
 
-    if status == "approved":
-        bot.send_message(message.chat.id, "✅ Pagamento aprovado!")
-        bot.send_message(message.chat.id, VIP_INVITE_LINK)
+        if status in ["approved", "authorized"]:
+            bot.send_message(
+                message.chat.id,
+                "✅ Pagamento aprovado!\n\nSeu acesso VIP está liberado 👇"
+            )
+            bot.send_message(message.chat.id, VIP_INVITE_LINK, parse_mode=None)
 
-    else:
-        bot.send_message(message.chat.id, "⏳ Ainda não confirmado.")
+        else:
+            bot.send_message(
+                message.chat.id,
+                "⏳ Pagamento ainda não confirmado.\n\n"
+                "Aguarde alguns instantes e clique em verificar novamente."
+            )
+
+    except Exception as e:
+        print("ERRO AO VERIFICAR:", e)
+        bot.send_message(message.chat.id, "❌ Erro ao verificar pagamento.")
 
 
-def lembrete(chat_id, payment_id):
+def lembrete(chat_id):
     time.sleep(120)
-    bot.send_video(chat_id, LEMBRETE_VIDEO, caption="⚡ Finalize o pagamento!")
+    bot.send_video(
+        chat_id,
+        LEMBRETE_VIDEO,
+        caption="⚡ Falta pouco... finalize o pagamento para liberar seu acesso ao VIP."
+    )
 
 
 def run_bot():
