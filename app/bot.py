@@ -15,7 +15,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 START_VIDEO = "BAACAgEAAxkBAANYaevr3T0Iu0WHTcsjBZ1Jo6F4liUAAjEKAAKEtmFHYy-juZDqFfc7BA"
 PAGAMENTO_VIDEO = "BAACAgEAAxkBAANuaev6AAFn46WIeaF5ZnI9bAtmV8PNAAI3CgAChLZhR-BxvRomfgSuOwQ"
 PIX_VIDEO = "BAACAgEAAxkBAANyaev7PxnIlAdjn4RqriaUhyrQRsgAAjkKAAKEtmFHKaMw9RQPQFk7BA"
-LEMBRETE_VIDEO = "BAACAgEAAxkBAAN0aev7X6Sfrq3QaJ6qpaZWjHP5y44AAjoKucnbJg7BA"
+LEMBRETE_VIDEO = "BAACAgEAAxkBAAN0aev7X6Sfrq3QaJ6qpaZWjHP5y44AAjoKAAKEtmFHeTo0KucnbJg7BA"
 
 SUPORTE = "https://t.me/anonimoprimevip"
 
@@ -181,19 +181,16 @@ def handle_text(message):
         cpf = "".join(filter(str.isdigit, message.text))
         user_data[user_id]["cpf"] = cpf
         user_states[user_id] = "telefone"
-
         bot.send_message(message.chat.id, "📱 Agora envie seu *telefone com DDD*:")
 
     elif estado == "telefone":
         user_data[user_id]["telefone"] = message.text.strip()
         user_states[user_id] = "email"
-
         bot.send_message(message.chat.id, "📧 Agora envie seu *e-mail*:")
 
     elif estado == "email":
         user_data[user_id]["email"] = message.text.strip()
         user_states[user_id] = "finalizado"
-
         gerar_pagamento(message)
 
 
@@ -215,23 +212,31 @@ def gerar_pagamento(message):
             email=dados["email"],
             nome=message.from_user.first_name
         )
+    except Exception as e:
+        print("ERRO MERCADO PAGO AO CRIAR PIX:", e)
+        bot.send_message(
+            message.chat.id,
+            "❌ *Não consegui gerar o Pix agora.*\n\n"
+            "Tente novamente ou fale com o suporte."
+        )
+        return
 
-        payment_id = str(pagamento["id"])
+    payment_id = str(pagamento["id"])
+    transaction_data = pagamento.get("point_of_interaction", {}).get("transaction_data", {})
+    pix_copia_cola = transaction_data.get("qr_code", "")
+    ticket_url = transaction_data.get("ticket_url", "")
 
-        transaction_data = pagamento.get("point_of_interaction", {}).get("transaction_data", {})
-        pix_copia_cola = transaction_data.get("qr_code", "")
-        ticket_url = transaction_data.get("ticket_url", "")
+    payments[payment_id] = {
+        "user_id": user_id,
+        "plano": plano,
+        "status": "pending"
+    }
 
-        payments[payment_id] = {
-            "user_id": user_id,
-            "plano": plano,
-            "status": "pending"
-        }
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("✅ Já paguei / verificar", callback_data=f"verificar_{payment_id}"))
+    kb.add(InlineKeyboardButton("🆘 Suporte", url=SUPORTE))
 
-        kb = InlineKeyboardMarkup()
-        kb.add(InlineKeyboardButton("✅ Já paguei / verificar", callback_data=f"verificar_{payment_id}"))
-        kb.add(InlineKeyboardButton("🆘 Suporte", url=SUPORTE))
-
+    try:
         bot.send_video(
             message.chat.id,
             PIX_VIDEO,
@@ -243,29 +248,39 @@ def gerar_pagamento(message):
             ),
             reply_markup=kb
         )
+    except Exception as e:
+        print("ERRO AO ENVIAR VIDEO PIX:", e)
+        bot.send_message(
+            message.chat.id,
+            "💰 *Pix gerado com sucesso!*\n\n"
+            f"📦 Plano: *{nome_plano}*\n"
+            f"💵 Valor: *R$ {valor:.2f}*\n\n"
+            "Copie o código Pix abaixo e pague no seu banco.",
+            reply_markup=kb
+        )
 
+    if pix_copia_cola:
         bot.send_message(
             message.chat.id,
             f"📌 PIX COPIA E COLA:\n\n{pix_copia_cola}",
             parse_mode=None
         )
-
-        if ticket_url:
-            bot.send_message(
-                message.chat.id,
-                f"🔗 Link de pagamento:\n{ticket_url}",
-                parse_mode=None
-            )
-
-        threading.Thread(target=lembrete, args=(message.chat.id, payment_id), daemon=True).start()
-
-    except Exception as e:
-        print("ERRO MERCADO PAGO:", e)
+    else:
+        print("ERRO: Mercado Pago não retornou qr_code.")
         bot.send_message(
             message.chat.id,
-            "❌ *Não consegui gerar o Pix agora.*\n\n"
-            "Tente novamente ou fale com o suporte."
+            "⚠️ O pagamento foi criado, mas o código Pix não apareceu.\n"
+            "Use o link abaixo ou fale com suporte."
         )
+
+    if ticket_url:
+        bot.send_message(
+            message.chat.id,
+            f"🔗 Link de pagamento:\n{ticket_url}",
+            parse_mode=None
+        )
+
+    threading.Thread(target=lembrete, args=(message.chat.id, payment_id), daemon=True).start()
 
 
 def verificar_pagamento(message, payment_id):
@@ -290,7 +305,6 @@ def verificar_pagamento(message, payment_id):
                 "✅ *Pagamento aprovado!*\n\n"
                 "Seu acesso VIP está liberado 👇"
             )
-
             bot.send_message(message.chat.id, VIP_INVITE_LINK, parse_mode=None)
 
         elif status_final == "pending":
