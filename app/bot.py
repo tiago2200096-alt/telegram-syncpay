@@ -19,13 +19,16 @@ PAGAMENTO_VIDEO = "BAACAgEAAxkBAANuaev6AAFn46WIeaF5ZnI9bAtmV8PNAAI3CgAChLZhR-Bxv
 PIX_VIDEO = "BAACAgEAAxkBAANyaev7PxnIlAdjn4RqriaUhyrQRsgAAjkKAAKEtmFHKaMw9RQPQFk7BA"
 LEMBRETE_VIDEO = "BAACAgEAAxkBAAN0aev7X6Sfrq3QaJ6qpaZWjHP5y44AAjoKAAKEtmFHeTo0KucnbJg7BA"
 
+user = {}
+payments = {}
 
+# ================== PLANOS ==================
 def plano_info(plano):
     if plano == "mensal":
-        return "Plano Mensal", 0.50
-    return "Plano Vitalício", 0.80
+        return "Plano Mensal", 19.90
+    return "Plano Vitalício", 49.90
 
-
+# ================== LINK TEMPORÁRIO ==================
 def gerar_link_temporario():
     expire_date = int((datetime.datetime.now() + datetime.timedelta(minutes=10)).timestamp())
 
@@ -37,7 +40,7 @@ def gerar_link_temporario():
 
     return link.invite_link
 
-
+# ================== MERCADO PAGO ==================
 def criar_pix(valor, email, cpf, nome):
     headers = {
         "Authorization": f"Bearer {MP_ACCESS_TOKEN}",
@@ -54,7 +57,7 @@ def criar_pix(valor, email, cpf, nome):
             "first_name": nome,
             "identification": {
                 "type": "CPF",
-                "number": cpf
+                "number": "".join(filter(str.isdigit, cpf))
             }
         }
     }
@@ -63,7 +66,6 @@ def criar_pix(valor, email, cpf, nome):
     r.raise_for_status()
     return r.json()
 
-
 def consultar(payment_id):
     r = requests.get(
         f"https://api.mercadopago.com/v1/payments/{payment_id}",
@@ -71,38 +73,65 @@ def consultar(payment_id):
     )
     return r.json()
 
+# ================== MENU ==================
+def menu():
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("📅 Plano Mensal", callback_data="mensal"))
+    kb.add(InlineKeyboardButton("💎 Plano Vitalício", callback_data="vitalicio"))
+    return kb
 
-user = {}
-payments = {}
-
-
+# ================== START ==================
 @bot.message_handler(commands=["start"])
 def start(m):
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("📅 Mensal", callback_data="mensal"))
-    kb.add(InlineKeyboardButton("💎 Vitalício", callback_data="vitalicio"))
+    bot.send_video(
+        m.chat.id,
+        START_VIDEO,
+        caption=(
+            "🔥 *BEM-VINDO AO BRASILPRIME VIP* 🔥\n\n"
 
-    bot.send_video(m.chat.id, START_VIDEO, caption="🔥 Escolha seu plano:", reply_markup=kb)
+            "⚠️ *ACESSO RESTRITO — CONTEÚDO NÃO DISPONÍVEL EM LUGARES COMUNS*\n\n"
 
+            "Aqui dentro você encontra:\n"
+            "💎 Conteúdos exclusivos e atualizados diariamente\n"
+            "🔥 Acesso a materiais raros\n"
+            "🎥 Vídeos premium liberados\n"
+            "😈 Conteúdo direto, sem censura\n\n"
 
+            "🚀 *Centenas de membros já estão dentro*\n\n"
+
+            "⏳ *Aproveite agora — acesso pode sair do ar a qualquer momento*\n\n"
+
+            "👇 Escolha seu plano e libere seu acesso agora:"
+        ),
+        reply_markup=menu()
+    )
+
+# ================== CALLBACK ==================
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
+    chat_id = c.message.chat.id
+
     if c.data in ["mensal", "vitalicio"]:
-        user[c.message.chat.id] = {"plano": c.data}
-        bot.send_message(c.message.chat.id, "Digite seu CPF:")
+        user[chat_id] = {"plano": c.data}
+        nome, valor = plano_info(c.data)
+
+        bot.send_message(chat_id, f"{nome}\n💰 R$ {valor:.2f}\n\nDigite seu CPF:")
 
     elif c.data.startswith("check_"):
         pid = c.data.split("_")[1]
+
         status = consultar(pid).get("status")
 
         if status == "approved":
             link = gerar_link_temporario()
-            bot.send_message(c.message.chat.id, "✅ Pago! Acesse 👇")
-            bot.send_message(c.message.chat.id, link)
+
+            bot.send_message(chat_id, "✅ Pagamento aprovado!\n\nAcesse 👇")
+            bot.send_message(chat_id, link)
+
         else:
-            bot.send_message(c.message.chat.id, "⏳ Ainda não confirmado.")
+            bot.send_message(chat_id, "⏳ Ainda não confirmado.")
 
-
+# ================== FLUXO ==================
 @bot.message_handler(func=lambda m: True)
 def fluxo(m):
     u = user.get(m.chat.id)
@@ -112,7 +141,7 @@ def fluxo(m):
 
     if "cpf" not in u:
         u["cpf"] = m.text
-        bot.send_message(m.chat.id, "Agora email:")
+        bot.send_message(m.chat.id, "Agora seu email:")
     elif "email" not in u:
         u["email"] = m.text
 
@@ -120,7 +149,6 @@ def fluxo(m):
         p = criar_pix(valor, u["email"], u["cpf"], m.from_user.first_name)
 
         pid = str(p["id"])
-        payments[pid] = m.chat.id
 
         pix = p["point_of_interaction"]["transaction_data"]["qr_code"]
 
@@ -130,5 +158,16 @@ def fluxo(m):
         bot.send_video(m.chat.id, PIX_VIDEO, caption=f"💰 Pague R$ {valor}", reply_markup=kb)
         bot.send_message(m.chat.id, pix, parse_mode=None)
 
+        threading.Thread(target=lembrete, args=(m.chat.id,), daemon=True).start()
 
-bot.infinity_polling()
+# ================== LEMBRETE ==================
+def lembrete(chat_id):
+    time.sleep(120)
+    bot.send_video(chat_id, LEMBRETE_VIDEO, caption="⚡ Falta pouco... finalize o pagamento!")
+
+    time.sleep(300)
+    bot.send_message(chat_id, "🔥 Última chance de entrar agora!")
+
+# ================== RUN ==================
+bot.remove_webhook()
+bot.infinity_polling(skip_pending=True)
